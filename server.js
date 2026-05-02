@@ -25,6 +25,7 @@ app.use(session(sessionConfig));
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/users", userRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
@@ -63,6 +64,7 @@ const sessionConfig = require("./config/session");
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const userRoutes = require("./routes/userRoutes");
 const userRoutes = require("./routes/userRoutes");
 
 const app = express();
