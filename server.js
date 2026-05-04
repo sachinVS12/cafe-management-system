@@ -7,6 +7,7 @@ const sessionConfig = require("./config/session");
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 
