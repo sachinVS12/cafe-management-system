@@ -62,6 +62,12 @@ const orderSchema = new mongoose.Schema({
   },
 });
 
+// Add these after the schema definition
+orderSchema.index({ createdAt: 1 });
+orderSchema.index({ status: 1 });
+orderSchema.index({ paymentStatus: 1 });
+orderSchema.index({ user: 1 });
+
 orderSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
