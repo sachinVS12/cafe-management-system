@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cafe Management System - Reports</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .report-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #e0e0e0;
+      }
+      .report-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      select,
+      input,
+      button {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        cursor: pointer;
+        border: none;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .stat-card h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        opacity: 0.9;
+      }
+      .stat-card .value {
+        font-size: 28px;
+        font-weight: bold;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+        display: none;
+      }
+      .error {
+        color: red;
+        padding: 10px;
+        margin: 10px 0;
+        background-color: #ffebee;
+        border-radius: 4px;
+        display: none;
+      }
+      .download-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .btn-download {
+        background-color: #2196f3;
+      }
+      .btn-download:hover {
+        background-color: #0b7dda;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="report-header">
+        <h1>Cafe Management System - Reports Dashboard</h1>
+        <div id="userInfo"></div>
+      </div>
+
+      <div class="report-controls">
+        <select id="reportType">
+          <option value="daily">Daily Report</option>
+          <option value="weekly">Weekly Report</option>
+          <option value="monthly">Monthly Report</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <input type="date" id="startDate" />
+        <input type="date" id="endDate" />
+        <button onclick="loadReport()">Generate Report</button>
+        <div class="download-buttons">
+          <button onclick="downloadReport('excel')" class="btn-download">
+            Download Excel
+          </button>
+          <button onclick="downloadReport('pdf')" class="btn-download">
+            Download PDF
+          </button>
+        </div>
+      </div>
+
+      <div id="loading" class="loading">Loading...</div>
+      <div id="error" class="error"></div>
+
+      <div id="reportContent"></div>
+
+      <div id="dashboardStats"></div>
+    </div>
+
+    <script>
+      // Configuration
+      const API_BASE_URL = "http://localhost:5000/api";
+      let authToken = null;
+
+      // Login function (simplified - you should implement proper login)
+      async function login() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              email: "admin@cafe.com",
+              password: "admin123",
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            document.getElementById("userInfo").innerHTML =
+              `Welcome, ${data.user.name} (${data.user.role})`;
+            loadDashboard();
+          } else {
+            showError("Login failed. Please check credentials.");
+          }
+        } catch (error) {
+          showError("Login error: " + error.message);
+        }
+      }
+
+      // Load dashboard stats
+      async function loadDashboard() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/reports/dashboard`, {
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            displayDashboard(data.data);
+          }
+        } catch (error) {
+          showError("Failed to load dashboard: " + error.message);
+        }
+      }
+
+      // Display dashboard stats
+      function displayDashboard(stats) {
+        const dashboardHtml = `
+                <h2>Quick Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Today's Revenue</h3>
+                        <div class="value">$${stats.daily.totalRevenue.toFixed(2)}</div>
+                        <small>${stats.daily.totalOrders} orders</small>
+                    </div>
+                    <div class="stat-card">
+                        <h3>This Week</h3>
+                        <div class="value">$${stats.weekly.totalRevenue.toFixed(2)}</div>
+                        <small>${stats.weekly.totalOrders} orders</small>
+                    </div>
+                    <div class="stat-card">
+                        <h3>This Month</h3>
+                        <div class="value">$${stats.monthly.totalRevenue.toFixed(2)}</div>
+                        <small>${stats.monthly.totalOrders} orders</small>
+                    </div>
+                </div>
+                
+                <h3>Top Products</h3>
+                <table>
+                    <thead>
+                        <tr><th>Product</th><th>Quantity Sold</th><th>Revenue</th></tr>
+                    </thead>
+                    <tbody>
+                        ${stats.topProducts
+                          .map(
+                            (p) => `
+                            <tr><td>${p.name}</td><td>${p.totalQuantity}</td><td>$${p.totalRevenue.toFixed(2)}</td></tr>
+                        `,
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+                
+                ${
+                  stats.lowStockProducts.length > 0
+                    ? `
+                    <h3>Low Stock Alert</h3>
+                    <table>
+                        <thead><tr><th>Product</th><th>Current Stock</th><th>Category</th></tr></thead>
+                        <tbody>
+                            ${stats.lowStockProducts
+                              .map(
+                                (p) => `
+                                <tr><td>${p.name}</td><td style="color: red">${p.stock}</td><td>${p.category?.name || "N/A"}</td></tr>
+                            `,
+                              )
+                              .join("")}
+                        </tbody>
+                    </table>
+                `
+                    : ""
+                }
+            `;
+        document.getElementById("dashboardStats").innerHTML = dashboardHtml;
+      }
+
+      // Load report based on type
+      async function loadReport() {
+        showLoading(true);
+        hideError();
+
+        const reportType = document.getElementById("reportType").value;
+        let url = `${API_BASE_URL}/reports/${reportType}`;
+
+        if (reportType === "custom") {
+          const startDate = document.getElementById("startDate").value;
+          const endDate = document.getElementById("endDate").value;
+          if (!startDate || !endDate) {
+            showError("Please select both start and end dates");
+            showLoading(false);
+            return;
+          }
+          url += `?startDate=${startDate}&endDate=${endDate}`;
+        } else {
+          const date = document.getElementById("startDate").value;
+          if (date) url += `?date=${date}`;
+        }
+
+        try {
+          const response = await fetch(url, { credentials: "include" });
+          if (response.ok) {
+            const data = await response.json();
+            displayReport(data);
+          } else {
+            const error = await response.json();
+            showError(error.message || "Failed to load report");
+          }
+        } catch (error) {
+          showError("Error loading report: " + error.message);
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      // Display report data
+      function displayReport(report) {
+        const html = `
+                <h2>${report.reportType.toUpperCase()} Report</h2>
+                <p>Period: ${new Date(report.startDate).toLocaleDateString()} - ${new Date(report.endDate).toLocaleDateString()}</p>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Orders</h3>
+                        <div class="value">${report.summary.totalOrders}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Revenue</h3>
+                        <div class="value">$${report.summary.totalRevenue.toFixed(2)}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Average Order Value</h3>
+                        <div class="value">$${report.summary.averageOrderValue.toFixed(2)}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Items Sold</h3>
+                        <div class="value">${report.summary.totalItemsSold}</div>
+                    </div>
+                </div>
+                
+                <h3>Top Products</h3>
+                <table>
+                    <thead><tr><th>Product</th><th>Quantity</th><th>Revenue</th></tr></thead>
+                    <tbody>
+                        ${report.topProducts
+                          .map(
+                            (p) => `
+                            <tr><td>${p.name}</td><td>${p.totalQuantity}</td><td>$${p.totalRevenue.toFixed(2)}</td></tr>
+                        `,
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+                
+                <h3>Payment Methods</h3>
+                <table>
+                    <thead><tr><th>Method</th><th>Orders</th><th>Total</th></tr></thead>
+                    <tbody>
+                        ${Object.entries(report.paymentMethods)
+                          .map(
+                            ([method, data]) => `
+                            <tr><td>${method}</td><td>${data.count}</td><td>$${data.total.toFixed(2)}</td></tr>
+                        `,
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+                
+                <h3>Recent Orders</h3>
+                <table>
+                    <thead><tr><th>Order #</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+                    <tbody>
+                        ${report.orders
+                          .slice(0, 10)
+                          .map(
+                            (order) => `
+                            <tr>
+                                <td>${order.orderNumber}</td>
+                                <td>${new Date(order.createdAt).toLocaleString()}</td>
+                                <td>${order.user?.name || "Guest"}</td>
+                                <td>$${order.totalAmount.toFixed(2)}</td>
+                                <td>${order.status}</td>
+                            </tr>
+                        `,
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            `;
+        document.getElementById("reportContent").innerHTML = html;
+      }
+
+      // Download report
+      async function downloadReport(format) {
+        const reportType = document.getElementById("reportType").value;
+        let startDate, endDate;
+
+        if (reportType === "custom") {
+          startDate = document.getElementById("startDate").value;
+          endDate = document.getElementById("endDate").value;
+          if (!startDate || !endDate) {
+            showError("Please select both start and end dates");
+            return;
+          }
+        } else if (reportType === "daily") {
+          startDate =
+            document.getElementById("startDate").value ||
+            new Date().toISOString().split("T")[0];
+          endDate = startDate;
+        } else if (reportType === "weekly") {
+          // For weekly, we'll use the selected start date or current week
+          startDate = document.getElementById("startDate").value;
+          if (!startDate) {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - dayOfWeek);
+            startDate = startOfWeek.toISOString().split("T")[0];
+          }
+          endDate = startDate;
+        }
+
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/reports/download/${format}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({
+                reportType,
+                startDate,
+                endDate,
+              }),
+            },
+          );
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `report_${Date.now()}.${format === "excel" ? "xlsx" : "pdf"}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+          } else {
+            const error = await response.json();
+            showError(error.message || "Download failed");
+          }
+        } catch (error) {
+          showError("Download error: " + error.message);
+        }
+      }
+
+      // Utility functions
+      function showLoading(show) {
+        document.getElementById("loading").style.display = show
+          ? "block"
+          : "none";
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById("error");
+        errorDiv.textContent = message;
+        errorDiv.style.display = "block";
+        setTimeout(() => {
+          errorDiv.style.display = "none";
+        }, 5000);
+      }
+
+      function hideError() {
+        document.getElementById("error").style.display = "none";
+      }
+
+      // Initialize
+      login();
+
+      // Set default dates
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("startDate").value = today;
+      document.getElementById("endDate").value = today;
+    </script>
+  </body>
+</html>
