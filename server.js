@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
-//const sessionConfig = require("./config/session");
+const sessionConfig = require("./src/config/session");
 const dotenv = require("dotenv");
 const connectDB = require("./src/config/database");
 
