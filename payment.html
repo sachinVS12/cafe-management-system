@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Processing - Cafe Management</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .payment-card {
+        background: white;
+        border-radius: 10px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      }
+
+      .order-summary {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+
+      .payment-methods {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+      }
+
+      .method-btn {
+        padding: 15px;
+        border: 2px solid #ddd;
+        background: white;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.3s;
+      }
+
+      .method-btn:hover {
+        border-color: #4caf50;
+        background: #f0f8f0;
+      }
+
+      .method-btn.active {
+        border-color: #4caf50;
+        background: #4caf50;
+        color: white;
+      }
+
+      .payment-form {
+        display: none;
+        margin-top: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+      }
+
+      .payment-form.active {
+        display: block;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+
+      button {
+        background: #4caf50;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background: #45a049;
+      }
+
+      .qr-container {
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .qr-code {
+        max-width: 200px;
+        margin: 0 auto;
+      }
+
+      .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+
+      .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+
+      .receipt-link {
+        display: inline-block;
+        margin-top: 10px;
+        color: #4caf50;
+        text-decoration: none;
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #4caf50;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="payment-card">
+        <h2>Payment Processing</h2>
+
+        <div id="orderSummary" class="order-summary">
+          <!-- Order summary will be loaded here -->
+        </div>
+
+        <h3>Select Payment Method</h3>
+        <div class="payment-methods">
+          <button class="method-btn" data-method="cash">💵 Cash</button>
+          <button class="method-btn" data-method="card">💳 Card</button>
+          <button class="method-btn" data-method="upi">📱 UPI</button>
+          <button class="method-btn" data-method="online">🌐 Online</button>
+        </div>
+
+        <!-- Cash Payment Form -->
+        <div id="cashForm" class="payment-form">
+          <h3>Cash Payment</h3>
+          <div class="form-group">
+            <label>Amount Received (₹)</label>
+            <input
+              type="number"
+              id="amountReceived"
+              placeholder="Enter amount received"
+            />
+          </div>
+          <div class="form-group">
+            <label>Change Returned</label>
+            <input type="text" id="changeReturned" readonly />
+          </div>
+          <button onclick="processCashPayment()">Complete Payment</button>
+        </div>
+
+        <!-- Card Payment Form -->
+        <div id="cardForm" class="payment-form">
+          <h3>Card Payment</h3>
+          <div class="form-group">
+            <label>Card Number</label>
+            <input
+              type="text"
+              id="cardNumber"
+              placeholder="1234 5678 9012 3456"
+              maxlength="19"
+            />
+          </div>
+          <div class="form-group">
+            <label>Card Holder Name</label>
+            <input type="text" id="cardHolderName" placeholder="John Doe" />
+          </div>
+          <div class="form-group">
+            <label>Expiry Date</label>
+            <input type="text" id="expiryDate" placeholder="MM/YY" />
+          </div>
+          <div class="form-group">
+            <label>CVV</label>
+            <input type="password" id="cvv" placeholder="123" maxlength="4" />
+          </div>
+          <button onclick="processCardPayment()">Pay Now</button>
+        </div>
+
+        <!-- UPI Payment Form -->
+        <div id="upiForm" class="payment-form">
+          <h3>UPI Payment</h3>
+          <div class="qr-container" id="qrContainer"></div>
+          <div class="form-group">
+            <label>UPI ID</label>
+            <input type="text" id="upiId" placeholder="username@upi" />
+          </div>
+          <div class="form-group">
+            <label>Transaction Reference</label>
+            <input
+              type="text"
+              id="transactionRef"
+              placeholder="Enter transaction reference"
+            />
+          </div>
+          <button onclick="verifyUPIPayment()">Verify Payment</button>
+        </div>
+
+        <!-- Online Payment Form -->
+        <div id="onlineForm" class="payment-form">
+          <h3>Online Payment</h3>
+          <p>You will be redirected to our secure payment gateway.</p>
+          <button onclick="processOnlinePayment()">
+            Proceed to Payment Gateway
+          </button>
+        </div>
+
+        <div id="loading" class="loading">
+          <div class="spinner"></div>
+          <p>Processing payment...</p>
+        </div>
+
+        <div id="result"></div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://localhost:5000/api";
+      let currentOrder = null;
+      let currentPaymentId = null;
+
+      // Get order ID from URL or create new order
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get("orderId");
+
+      if (orderId) {
+        loadOrderDetails(orderId);
+      } else {
+        // Sample order creation
+        createSampleOrder();
+      }
+
+      // Load order details
+      async function loadOrderDetails(orderId) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            currentOrder = data.order;
+            displayOrderSummary(currentOrder);
+          }
+        } catch (error) {
+          showError("Failed to load order details");
+        }
+      }
+
+      // Create sample order for demonstration
+      async function createSampleOrder() {
+        const sampleOrder = {
+          items: [
+            { product: "product_id_1", quantity: 2 },
+            { product: "product_id_2", quantity: 1 },
+          ],
+          paymentMethod: "pending",
+          specialInstructions: "No onions please",
+        };
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(sampleOrder),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            currentOrder = data.order;
+            displayOrderSummary(currentOrder);
+          }
+        } catch (error) {
+          showError("Failed to create order");
+        }
+      }
+
+      // Display order summary
+      function displayOrderSummary(order) {
+        const summaryHtml = `
+                <h3>Order Summary</h3>
+                <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+                <p><strong>Total Amount:</strong> ₹${order.totalAmount.toFixed(2)}</p>
+                <p><strong>Items:</strong></p>
+                <ul>
+                    ${order.items
+                      .map(
+                        (item) => `
+                        <li>${item.product.name} x ${item.quantity} = ₹${(item.quantity * item.price).toFixed(2)}</li>
+                    `,
+                      )
+                      .join("")}
+                </ul>
+            `;
+        document.getElementById("orderSummary").innerHTML = summaryHtml;
+
+        // Update change calculation for cash
+        const amountReceived = document.getElementById("amountReceived");
+        if (amountReceived) {
+          amountReceived.addEventListener("input", calculateChange);
+        }
+      }
+
+      // Calculate change for cash payment
+      function calculateChange() {
+        const amountReceived = parseFloat(
+          document.getElementById("amountReceived").value,
+        );
+        const totalAmount = currentOrder.totalAmount;
+        const change = amountReceived - totalAmount;
+        document.getElementById("changeReturned").value =
+          change >= 0 ? `₹${change.toFixed(2)}` : "Insufficient amount";
+      }
+
+      // Payment method selection
+      document.querySelectorAll(".method-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const method = btn.dataset.method;
+          document
+            .querySelectorAll(".payment-form")
+            .forEach((form) => form.classList.remove("active"));
+          document.getElementById(`${method}Form`).classList.add("active");
+
+          document
+            .querySelectorAll(".method-btn")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+
+          if (method === "upi") {
+            generateUPIQR();
+          }
+        });
+      });
+
+      // Generate UPI QR code
+      async function generateUPIQR() {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/payments/generate-qr/${currentOrder._id}`,
+            {
+              credentials: "include",
+            },
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const qrHtml = `
+                        <img src="${data.qrCode}" alt="UPI QR Code" class="qr-code">
+                        <p><strong>UPI ID:</strong> ${data.upiId}</p>
+                        <p><strong>Amount:</strong> ₹${data.amount.toFixed(2)}</p>
+                        <p><strong>Order:</strong> ${data.orderNumber}</p>
+                    `;
+            document.getElementById("qrContainer").innerHTML = qrHtml;
+          }
+        } catch (error) {
+          showError("Failed to generate QR code");
+        }
+      }
+
+      // Process cash payment
+      async function processCashPayment() {
+        const amountReceived = parseFloat(
+          document.getElementById("amountReceived").value,
+        );
+
+        if (amountReceived < currentOrder.totalAmount) {
+          showError("Insufficient amount received");
+          return;
+        }
+
+        showLoading(true);
+
+        const paymentData = {
+          orderId: currentOrder._id,
+          paymentMethod: "cash",
+          paymentDetails: {
+            amountReceived: amountReceived,
+          },
+        };
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/payments/process`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(paymentData),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            currentPaymentId = data.payment.paymentId;
+            showSuccess("Payment successful!", data.payment.receiptNumber);
+          } else {
+            const error = await response.json();
+            showError(error.message);
+          }
+        } catch (error) {
+          showError("Payment processing failed");
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      // Process card payment
+      async function processCardPayment() {
+        const cardNumber = document.getElementById("cardNumber").value;
+        const cardHolderName = document.getElementById("cardHolderName").value;
+
+        if (!cardNumber || !cardHolderName) {
+          showError("Please fill all card details");
+          return;
+        }
+
+        showLoading(true);
+
+        const paymentData = {
+          orderId: currentOrder._id,
+          paymentMethod: "card",
+          paymentDetails: {
+            cardType: getCardType(cardNumber),
+            lastFourDigits: cardNumber.slice(-4),
+            cardHolderName: cardHolderName,
+            transactionId: generateTransactionId(),
+          },
+        };
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/payments/process`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(paymentData),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            currentPaymentId = data.payment.paymentId;
+            showSuccess("Payment successful!", data.payment.receiptNumber);
+          } else {
+            const error = await response.json();
+            showError(error.message);
+          }
+        } catch (error) {
+          showError("Payment processing failed");
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      // Verify UPI payment
+      async function verifyUPIPayment() {
+        const transactionRef = document.getElementById("transactionRef").value;
+
+        if (!transactionRef) {
+          showError("Please enter transaction reference");
+          return;
+        }
+
+        showLoading(true);
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/payments/verify-upi`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              orderId: currentOrder._id,
+              transactionRef: transactionRef,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            showSuccess("Payment verified successfully!", data.receiptNumber);
+          } else {
+            const error = await response.json();
+            showError(error.message);
+          }
+        } catch (error) {
+          showError("Payment verification failed");
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      // Process online payment
+      async function processOnlinePayment() {
+        showLoading(true);
+
+        // Simulate payment gateway redirect
+        setTimeout(async () => {
+          const paymentData = {
+            orderId: currentOrder._id,
+            paymentMethod: "online",
+            paymentDetails: {
+              transactionId: generateTransactionId(),
+            },
+          };
+
+          try {
+            const response = await fetch(`${API_BASE_URL}/payments/process`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify(paymentData),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              currentPaymentId = data.payment.paymentId;
+              showSuccess("Payment successful!", data.payment.receiptNumber);
+            } else {
+              const error = await response.json();
+              showError(error.message);
+            }
+          } catch (error) {
+            showError("Payment processing failed");
+          } finally {
+            showLoading(false);
+          }
+        }, 2000);
+      }
+
+      // Show success message with receipt download
+      function showSuccess(message, receiptNumber) {
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = `
+                <div class="success-message">
+                    <strong>✓ ${message}</strong>
+                    <p>Receipt Number: ${receiptNumber}</p>
+                    <a href="#" onclick="downloadReceipt()" class="receipt-link">📄 Download Receipt (PDF)</a>
+                    <br>
+                    <a href="#" onclick="printReceipt()" class="receipt-link">🖨️ Print Receipt</a>
+                </div>
+            `;
+      }
+
+      // Show error message
+      function showError(message) {
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = `
+                <div class="error-message">
+                    <strong>✗ Error</strong>
+                    <p>${message}</p>
+                </div>
+            `;
+        setTimeout(() => {
+          resultDiv.innerHTML = "";
+        }, 5000);
+      }
+
+      // Download receipt
+      async function downloadReceipt() {
+        if (!currentPaymentId) return;
+
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/payments/receipt/${currentPaymentId}`,
+            {
+              credentials: "include",
+            },
+          );
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `receipt_${currentPaymentId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+          }
+        } catch (error) {
+          showError("Failed to download receipt");
+        }
+      }
+
+      // Print receipt
+      async function printReceipt() {
+        if (!currentPaymentId) return;
+
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/payments/receipt/${currentPaymentId}`,
+            {
+              credentials: "include",
+            },
+          );
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const printWindow = window.open(url);
+            printWindow.print();
+          }
+        } catch (error) {
+          showError("Failed to print receipt");
+        }
+      }
+
+      // Helper functions
+      function getCardType(cardNumber) {
+        const firstDigit = cardNumber[0];
+        if (firstDigit === "4") return "Visa";
+        if (firstDigit === "5") return "MasterCard";
+        if (firstDigit === "3") return "Amex";
+        return "Unknown";
+      }
+
+      function generateTransactionId() {
+        return (
+          "TXN-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9)
+        );
+      }
+
+      function showLoading(show) {
+        document.getElementById("loading").style.display = show
+          ? "block"
+          : "none";
+      }
+
+      // Initialize with cash as default
+      document.querySelector('[data-method="cash"]').click();
+    </script>
+  </body>
+</html>
