@@ -2,7 +2,7 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo");
 
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || "your_default_secret_key_change_this",
+  secret: process.env.SESSION_SECRET || "default_secret_key_change_this",
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -12,8 +12,7 @@ const sessionConfig = {
     sameSite: "lax",
   },
   store: MongoStore.create({
-    mongoUrl:
-      process.env.MONGODB_URI || "mongodb://localhost:27017/cafe_management",
+    mongoUrl: process.env.MONGODB_URI,
     ttl: 24 * 60 * 60,
     autoRemove: "native",
   }),
