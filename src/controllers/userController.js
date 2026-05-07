@@ -132,6 +132,21 @@ const userController = {
     }
   },
 
+  // Add to userController.js if missing
+  async getCurrentUser(req, res) {
+    try {
+      const user = await User.findById(req.user._id).select("-password");
+      res.json({
+        success: true,
+        user,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to get user info",
+      });
+    }
+  },
   // Activate user (Admin only)
   async activateUser(req, res) {
     try {
