@@ -1,75 +1,55 @@
 const express = require("express");
-const cors = require("cors");
-const session = require("express-session");
-const sessionConfig = require("./src/config/session");
 const dotenv = require("dotenv");
-const connectDB = require("./src/config/database");
+const mongoose = require("mongoose");
+const session = require("express-session");
+const MongoStore = require("connect-mongo");
 
-// Import routes
-const authRoutes = require("./src/Routes/authRoutes");
-const productRoutes = require("./src/Routes/productRoutes");
-const orderRoutes = require("./src/Routes/orderRoutes");
-const userRoutes = require("./src/Routes/userRoutes");
-const reportRoutes = require("./src/Routes/reportRoutes");
-const paymentRoutes = require("./src/Routes/paymentRoutes");
-
-const app = express();
-
-// Middleware
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-  }),
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(session(sessionConfig));
-
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/reports", reportRoutes);
-app.use("/api/payments", paymentRoutes);
-
+// Load env vars
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
-connectDB();
+// Import app
+const app = require("./src/app");
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Connect to MongoDB with better error handling
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("✅ MongoDB Connected Successfully");
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Cafe Management System API is running",
-    timestamp: new Date(),
+    // Update session store with mongoose connection
+    const sessionConfig = {
+      secret: process.env.SESSION_SECRET || "default_secret_key_change_this",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: "lax",
+      },
+      store: MongoStore.create({
+        client: mongoose.connection.getClient(),
+        dbName: "cafe_management",
+        collectionName: "sessions",
+        ttl: 24 * 60 * 60,
+      }),
+    };
+
+    // Set session middleware in app
+    app.use(session(sessionConfig));
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 API URL: http://localhost:${PORT}/api`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    console.error("Please make sure MongoDB is running");
+    process.exit(1);
   });
-});
-
-// 404 handler
-app.use("*", (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: "Internal server error",
-    error: process.env.NODE_ENV === "development" ? err.message : {},
-  });
-});
-
-module.exports = app;
