@@ -3,16 +3,21 @@ const Order = require("../models/Order");
 const User = require("../models/User");
 const Product = require("../models/Product");
 const QRCode = require("qrcode");
-const pdf = require("html-pdf-node");
 const { v4: uuidv4 } = require("uuid");
-const path = require("path");
-const fs = require("fs");
 
 const paymentController = {
   // Process payment for an order
   async processPayment(req, res) {
     try {
       const { orderId, paymentMethod, paymentDetails, notes } = req.body;
+
+      // Validate required fields
+      if (!orderId || !paymentMethod) {
+        return res.status(400).json({
+          success: false,
+          message: "Order ID and payment method are required",
+        });
+      }
 
       // Find order
       const order =
@@ -52,37 +57,32 @@ const paymentController = {
         amount: order.totalAmount,
         paymentMethod,
         paymentStatus: "completed",
-        notes,
+        notes: notes || "",
         processedBy: req.user._id,
       });
 
       // Add payment method specific details
-      switch (paymentMethod) {
-        case "cash":
-          payment.cashDetails = {
-            amountReceived: paymentDetails.amountReceived,
-            amountReturned: paymentDetails.amountReceived - order.totalAmount,
-            receivedBy: req.user.name,
-          };
-          break;
-        case "card":
-          payment.cardDetails = {
-            cardType: paymentDetails.cardType,
-            lastFourDigits: paymentDetails.lastFourDigits,
-            cardHolderName: paymentDetails.cardHolderName,
-          };
-          payment.transactionId = paymentDetails.transactionId || uuidv4();
-          break;
-        case "upi":
-          payment.upiDetails = {
-            upiId: paymentDetails.upiId,
-            transactionRef: paymentDetails.transactionRef || uuidv4(),
-          };
-          payment.transactionId = paymentDetails.transactionRef || uuidv4();
-          break;
-        case "online":
-          payment.transactionId = paymentDetails.transactionId || uuidv4();
-          break;
+      if (paymentMethod === "cash" && paymentDetails) {
+        payment.cashDetails = {
+          amountReceived: paymentDetails.amountReceived,
+          amountReturned: paymentDetails.amountReceived - order.totalAmount,
+          receivedBy: req.user.name,
+        };
+      } else if (paymentMethod === "card" && paymentDetails) {
+        payment.cardDetails = {
+          cardType: paymentDetails.cardType || "Unknown",
+          lastFourDigits: paymentDetails.lastFourDigits || "0000",
+          cardHolderName: paymentDetails.cardHolderName || "",
+        };
+        payment.transactionId = paymentDetails.transactionId || uuidv4();
+      } else if (paymentMethod === "upi" && paymentDetails) {
+        payment.upiDetails = {
+          upiId: paymentDetails.upiId || "",
+          transactionRef: paymentDetails.transactionRef || uuidv4(),
+        };
+        payment.transactionId = paymentDetails.transactionRef || uuidv4();
+      } else if (paymentMethod === "online" && paymentDetails) {
+        payment.transactionId = paymentDetails.transactionId || uuidv4();
       }
 
       await payment.save();
@@ -118,6 +118,14 @@ const paymentController = {
   async generateUPIQR(req, res) {
     try {
       const { orderId } = req.params;
+
+      if (!orderId) {
+        return res.status(400).json({
+          success: false,
+          message: "Order ID is required",
+        });
+      }
+
       const order = await Order.findById(orderId);
 
       if (!order) {
@@ -160,13 +168,17 @@ const paymentController = {
     }
   },
 
-  // Verify UPI payment (mock - integrate with actual UPI API)
+  // Verify UPI payment
   async verifyUPIPayment(req, res) {
     try {
       const { orderId, transactionRef } = req.body;
 
-      // In production, verify with UPI API
-      // For demo, we'll simulate verification
+      if (!orderId || !transactionRef) {
+        return res.status(400).json({
+          success: false,
+          message: "Order ID and transaction reference are required",
+        });
+      }
 
       const order = await Order.findById(orderId);
 
@@ -177,13 +189,21 @@ const paymentController = {
         });
       }
 
-      // Simulate payment verification
+      // Check if already paid
+      if (order.paymentStatus === "paid") {
+        return res.status(400).json({
+          success: false,
+          message: "Order is already paid",
+        });
+      }
+
+      // Simulate payment verification (in production, integrate with actual UPI API)
       const paymentVerified = true;
 
       if (paymentVerified) {
         // Create payment record
         const payment = new Payment({
-          paymentId: `PAY-${Date.now()}`,
+          paymentId: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           orderId: order._id,
           userId: order.user._id,
           amount: order.totalAmount,
@@ -192,7 +212,7 @@ const paymentController = {
           transactionId: transactionRef,
           upiDetails: {
             upiId: "customer@upi",
-            transactionRef,
+            transactionRef: transactionRef,
           },
           processedBy: req.user._id,
         });
@@ -202,12 +222,14 @@ const paymentController = {
         // Update order
         order.paymentStatus = "paid";
         order.status = "confirmed";
+        order.updatedAt = Date.now();
         await order.save();
 
         res.json({
           success: true,
           message: "Payment verified successfully",
           receiptNumber: payment.receiptNumber,
+          paymentId: payment.paymentId,
         });
       } else {
         res.status(400).json({
@@ -216,6 +238,7 @@ const paymentController = {
         });
       }
     } catch (error) {
+      console.error("UPI verification error:", error);
       res.status(500).json({
         success: false,
         message: "Payment verification failed",
@@ -228,6 +251,13 @@ const paymentController = {
   async downloadReceipt(req, res) {
     try {
       const { paymentId } = req.params;
+
+      if (!paymentId) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment ID is required",
+        });
+      }
 
       const payment = await Payment.findOne({ paymentId })
         .populate("orderId")
@@ -245,32 +275,15 @@ const paymentController = {
       await order.populate("items.product");
 
       // Generate receipt HTML
-      const receiptHtml = await generateReceiptHTML(payment, order);
+      const receiptHtml = generateReceiptHTML(payment, order);
 
-      // PDF options
-      const options = {
-        format: "A4",
-        margin: {
-          top: "20mm",
-          bottom: "20mm",
-          left: "15mm",
-          right: "15mm",
-        },
-        printBackground: true,
-        preferCSSPageSize: true,
-      };
-
-      // Generate PDF
-      const file = { content: receiptHtml };
-      const pdfBuffer = await pdf.generatePdf(file, options);
-
-      // Set response headers
-      res.setHeader("Content-Type", "application/pdf");
+      // Set response headers for HTML receipt
+      res.setHeader("Content-Type", "text/html");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=receipt_${payment.receiptNumber}.pdf`,
+        `inline; filename=receipt_${payment.receiptNumber}.html`,
       );
-      res.send(pdfBuffer);
+      res.send(receiptHtml);
     } catch (error) {
       console.error("Receipt generation error:", error);
       res.status(500).json({
@@ -303,6 +316,7 @@ const paymentController = {
         payment,
       });
     } catch (error) {
+      console.error("Get payment error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch payment details",
@@ -327,6 +341,7 @@ const paymentController = {
         payments,
       });
     } catch (error) {
+      console.error("Get order payments error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch payment history",
@@ -339,6 +354,13 @@ const paymentController = {
   async processRefund(req, res) {
     try {
       const { paymentId, reason } = req.body;
+
+      if (!paymentId) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment ID is required",
+        });
+      }
 
       const payment = await Payment.findOne({ paymentId });
 
@@ -357,24 +379,25 @@ const paymentController = {
       }
 
       // Process refund based on payment method
-      // In production, integrate with payment gateway
-
       payment.paymentStatus = "refunded";
-      payment.notes = `${payment.notes || ""} Refunded: ${reason}`;
+      payment.notes = `${payment.notes || ""} Refunded: ${reason || "No reason provided"}`;
       await payment.save();
 
       // Update order
       const order = await Order.findById(payment.orderId);
-      order.paymentStatus = "refunded";
-      order.status = "cancelled";
-      await order.save();
+      if (order) {
+        order.paymentStatus = "refunded";
+        order.status = "cancelled";
+        order.updatedAt = Date.now();
+        await order.save();
 
-      // Restore product stock
-      for (const item of order.items) {
-        const product = await Product.findById(item.product);
-        if (product) {
-          product.stock += item.quantity;
-          await product.save();
+        // Restore product stock
+        for (const item of order.items) {
+          const product = await Product.findById(item.product);
+          if (product) {
+            product.stock += item.quantity;
+            await product.save();
+          }
         }
       }
 
@@ -384,6 +407,7 @@ const paymentController = {
         refundAmount: payment.amount,
       });
     } catch (error) {
+      console.error("Refund error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to process refund",
@@ -431,6 +455,7 @@ const paymentController = {
         stats,
       });
     } catch (error) {
+      console.error("Payment stats error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch payment statistics",
@@ -441,7 +466,7 @@ const paymentController = {
 };
 
 // Helper function to generate receipt HTML
-async function generateReceiptHTML(payment, order) {
+function generateReceiptHTML(payment, order) {
   const date = new Date(payment.paymentDate);
   const formattedDate = date.toLocaleDateString("en-US", {
     year: "numeric",
@@ -615,7 +640,7 @@ async function generateReceiptHTML(payment, order) {
         <div class="receipt-info">
           <div class="info-row">
             <span class="info-label">Receipt Number:</span>
-            <span class="info-value">${payment.receiptNumber}</span>
+            <span class="info-value">${payment.receiptNumber || "N/A"}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Payment ID:</span>
@@ -631,11 +656,11 @@ async function generateReceiptHTML(payment, order) {
           </div>
           <div class="info-row">
             <span class="info-label">Customer Name:</span>
-            <span class="info-value">${payment.userId.name}</span>
+            <span class="info-value">${payment.userId?.name || "Guest"}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Customer Email:</span>
-            <span class="info-value">${payment.userId.email}</span>
+            <span class="info-value">${payment.userId?.email || "N/A"}</span>
           </div>
         </div>
         
@@ -649,30 +674,31 @@ async function generateReceiptHTML(payment, order) {
             </tr>
           </thead>
           <tbody>
-            ${order.items
-              .map(
-                (item) => `
+            ${
+              (order.items &&
+                order.items
+                  .map(
+                    (item) => `
               <tr>
-                <td>${item.product.name}</td>
+                <td>${item.product?.name || "Unknown Product"}</td>
                 <td>${item.quantity}</td>
-                <td>₹${item.price.toFixed(2)}</td>
-                <td>₹${(item.quantity * item.price).toFixed(2)}</td>
+                <td>₹${item.price?.toFixed(2) || "0.00"}</td>
+                <td>₹${((item.quantity || 0) * (item.price || 0)).toFixed(2)}</td>
               </tr>
             `,
-              )
-              .join("")}
+                  )
+                  .join("")) ||
+              '</td><td colspan="4">No items found</td></tr>'
+            }
           </tbody>
         </table>
         
         <div class="total-section">
           <div class="total-row">
-            <strong>Subtotal:</strong> ₹${order.totalAmount.toFixed(2)}
-          </div>
-          <div class="total-row">
-            <strong>Tax (5% GST):</strong> ₹${(order.totalAmount * 0.05).toFixed(2)}
+            <strong>Total Amount:</strong> ₹${order.totalAmount?.toFixed(2) || "0.00"}
           </div>
           <div class="total-row grand-total">
-            <strong>Grand Total:</strong> ₹${(order.totalAmount * 1.05).toFixed(2)}
+            <strong>Paid Amount:</strong> ₹${payment.amount?.toFixed(2) || "0.00"}
           </div>
         </div>
         
@@ -680,48 +706,48 @@ async function generateReceiptHTML(payment, order) {
           <h3>Payment Details</h3>
           <div class="info-row">
             <span class="info-label">Payment Method:</span>
-            <span class="info-value">${payment.paymentMethod.toUpperCase()}</span>
+            <span class="info-value">${(payment.paymentMethod || "N/A").toUpperCase()}</span>
           </div>
           ${
-            payment.paymentMethod === "cash"
+            payment.paymentMethod === "cash" && payment.cashDetails
               ? `
             <div class="info-row">
               <span class="info-label">Amount Received:</span>
-              <span class="info-value">₹${payment.cashDetails?.amountReceived?.toFixed(2)}</span>
+              <span class="info-value">₹${payment.cashDetails.amountReceived?.toFixed(2) || "0.00"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Amount Returned:</span>
-              <span class="info-value">₹${payment.cashDetails?.amountReturned?.toFixed(2)}</span>
+              <span class="info-value">₹${payment.cashDetails.amountReturned?.toFixed(2) || "0.00"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Received By:</span>
-              <span class="info-value">${payment.cashDetails?.receivedBy}</span>
+              <span class="info-value">${payment.cashDetails.receivedBy || "N/A"}</span>
             </div>
           `
-              : payment.paymentMethod === "card"
+              : payment.paymentMethod === "card" && payment.cardDetails
                 ? `
             <div class="info-row">
               <span class="info-label">Card Type:</span>
-              <span class="info-value">${payment.cardDetails?.cardType}</span>
+              <span class="info-value">${payment.cardDetails.cardType || "N/A"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Card Number:</span>
-              <span class="info-value">**** **** **** ${payment.cardDetails?.lastFourDigits}</span>
+              <span class="info-value">**** **** **** ${payment.cardDetails.lastFourDigits || "0000"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Card Holder:</span>
-              <span class="info-value">${payment.cardDetails?.cardHolderName}</span>
+              <span class="info-value">${payment.cardDetails.cardHolderName || "N/A"}</span>
             </div>
           `
-                : payment.paymentMethod === "upi"
+                : payment.paymentMethod === "upi" && payment.upiDetails
                   ? `
             <div class="info-row">
               <span class="info-label">UPI ID:</span>
-              <span class="info-value">${payment.upiDetails?.upiId}</span>
+              <span class="info-value">${payment.upiDetails.upiId || "N/A"}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Transaction Ref:</span>
-              <span class="info-value">${payment.upiDetails?.transactionRef}</span>
+              <span class="info-value">${payment.upiDetails.transactionRef || "N/A"}</span>
             </div>
           `
                   : ""
@@ -738,7 +764,7 @@ async function generateReceiptHTML(payment, order) {
           }
           <div class="info-row">
             <span class="info-label">Payment Status:</span>
-            <span class="info-value" style="color: #4CAF50;">${payment.paymentStatus.toUpperCase()}</span>
+            <span class="info-value" style="color: #4CAF50;">${(payment.paymentStatus || "N/A").toUpperCase()}</span>
           </div>
         </div>
         
