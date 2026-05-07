@@ -1,8 +1,5 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
-const User = require("../models/User");
-const ExcelJS = require("exceljs");
-const PDFDocument = require("pdfkit");
 
 const reportController = {
   // Generate Daily Report
@@ -27,6 +24,7 @@ const reportController = {
         ...report,
       });
     } catch (error) {
+      console.error("Daily report error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to generate daily report",
@@ -60,6 +58,7 @@ const reportController = {
         ...report,
       });
     } catch (error) {
+      console.error("Weekly report error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to generate weekly report",
@@ -90,6 +89,7 @@ const reportController = {
         ...report,
       });
     } catch (error) {
+      console.error("Monthly report error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to generate monthly report",
@@ -126,6 +126,7 @@ const reportController = {
         ...report,
       });
     } catch (error) {
+      console.error("Custom report error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to generate custom report",
@@ -134,265 +135,7 @@ const reportController = {
     }
   },
 
-  // Download Report as Excel
-  async downloadExcelReport(req, res) {
-    try {
-      const { startDate, endDate, reportType } = req.body;
-
-      let start, end;
-
-      if (reportType === "daily") {
-        const date = startDate ? new Date(startDate) : new Date();
-        start = new Date(date);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(date);
-        end.setHours(23, 59, 59, 999);
-      } else if (reportType === "weekly") {
-        let startDateObj = startDate ? new Date(startDate) : new Date();
-        const dayOfWeek = startDateObj.getDay();
-        startDateObj.setDate(startDateObj.getDate() - dayOfWeek);
-        start = new Date(startDateObj);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-      } else {
-        start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-      }
-
-      const reportData = await generateReport(start, end);
-
-      // Create Excel workbook
-      const workbook = new ExcelJS.Workbook();
-
-      // Summary Sheet
-      const summarySheet = workbook.addWorksheet("Summary");
-      summarySheet.columns = [
-        { header: "Metric", key: "metric", width: 30 },
-        { header: "Value", key: "value", width: 20 },
-      ];
-
-      summarySheet.addRows([
-        {
-          metric: "Report Period",
-          value: `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`,
-        },
-        { metric: "Total Orders", value: reportData.summary.totalOrders },
-        {
-          metric: "Total Revenue",
-          value: `$${reportData.summary.totalRevenue.toFixed(2)}`,
-        },
-        {
-          metric: "Average Order Value",
-          value: `$${reportData.summary.averageOrderValue.toFixed(2)}`,
-        },
-        {
-          metric: "Total Items Sold",
-          value: reportData.summary.totalItemsSold,
-        },
-        {
-          metric: "Unique Customers",
-          value: reportData.summary.uniqueCustomers,
-        },
-      ]);
-
-      // Orders Sheet
-      const ordersSheet = workbook.addWorksheet("Orders");
-      ordersSheet.columns = [
-        { header: "Order Number", key: "orderNumber", width: 20 },
-        { header: "Date", key: "date", width: 20 },
-        { header: "Customer", key: "customer", width: 25 },
-        { header: "Total Amount", key: "totalAmount", width: 15 },
-        { header: "Status", key: "status", width: 15 },
-        { header: "Payment Status", key: "paymentStatus", width: 15 },
-        { header: "Items Count", key: "itemsCount", width: 12 },
-      ];
-
-      reportData.orders.forEach((order) => {
-        ordersSheet.addRow({
-          orderNumber: order.orderNumber,
-          date: order.createdAt.toLocaleString(),
-          customer: order.user?.name || "Guest",
-          totalAmount: `$${order.totalAmount.toFixed(2)}`,
-          status: order.status,
-          paymentStatus: order.paymentStatus,
-          itemsCount: order.items.length,
-        });
-      });
-
-      // Top Products Sheet
-      const productsSheet = workbook.addWorksheet("Top Products");
-      productsSheet.columns = [
-        { header: "Product Name", key: "name", width: 30 },
-        { header: "Quantity Sold", key: "quantity", width: 15 },
-        { header: "Revenue", key: "revenue", width: 15 },
-      ];
-
-      reportData.topProducts.forEach((product) => {
-        productsSheet.addRow({
-          name: product.name,
-          quantity: product.totalQuantity,
-          revenue: `$${product.totalRevenue.toFixed(2)}`,
-        });
-      });
-
-      // Payment Methods Sheet
-      const paymentSheet = workbook.addWorksheet("Payment Methods");
-      paymentSheet.columns = [
-        { header: "Payment Method", key: "method", width: 20 },
-        { header: "Orders Count", key: "count", width: 15 },
-        { header: "Total Amount", key: "amount", width: 15 },
-      ];
-
-      for (const [method, data] of Object.entries(reportData.paymentMethods)) {
-        paymentSheet.addRow({
-          method: method,
-          count: data.count,
-          amount: `$${data.total.toFixed(2)}`,
-        });
-      }
-
-      // Set response headers
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=report_${Date.now()}.xlsx`,
-      );
-
-      await workbook.xlsx.write(res);
-      res.end();
-    } catch (error) {
-      console.error("Excel generation error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to generate Excel report",
-        error: error.message,
-      });
-    }
-  },
-
-  // Download Report as PDF
-  async downloadPdfReport(req, res) {
-    try {
-      const { startDate, endDate, reportType } = req.body;
-
-      let start, end;
-
-      if (reportType === "daily") {
-        const date = startDate ? new Date(startDate) : new Date();
-        start = new Date(date);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(date);
-        end.setHours(23, 59, 59, 999);
-      } else if (reportType === "weekly") {
-        let startDateObj = startDate ? new Date(startDate) : new Date();
-        const dayOfWeek = startDateObj.getDay();
-        startDateObj.setDate(startDateObj.getDate() - dayOfWeek);
-        start = new Date(startDateObj);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-      } else {
-        start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-      }
-
-      const reportData = await generateReport(start, end);
-
-      // Create PDF
-      const doc = new PDFDocument({ margin: 50 });
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=report_${Date.now()}.pdf`,
-      );
-
-      doc.pipe(res);
-
-      // Header
-      doc
-        .fontSize(20)
-        .text("Cafe Management System Report", { align: "center" });
-      doc.moveDown();
-      doc
-        .fontSize(12)
-        .text(
-          `Report Period: ${start.toLocaleDateString()} - ${end.toLocaleDateString()}`,
-          { align: "center" },
-        );
-      doc.moveDown();
-
-      // Summary Section
-      doc.fontSize(16).text("Summary", { underline: true });
-      doc.moveDown(0.5);
-
-      doc.fontSize(12);
-      doc.text(`Total Orders: ${reportData.summary.totalOrders}`);
-      doc.text(`Total Revenue: $${reportData.summary.totalRevenue.toFixed(2)}`);
-      doc.text(
-        `Average Order Value: $${reportData.summary.averageOrderValue.toFixed(2)}`,
-      );
-      doc.text(`Total Items Sold: ${reportData.summary.totalItemsSold}`);
-      doc.text(`Unique Customers: ${reportData.summary.uniqueCustomers}`);
-      doc.moveDown();
-
-      // Top Products
-      doc.fontSize(16).text("Top Selling Products", { underline: true });
-      doc.moveDown(0.5);
-
-      reportData.topProducts.slice(0, 10).forEach((product, index) => {
-        doc
-          .fontSize(12)
-          .text(
-            `${index + 1}. ${product.name} - ${product.totalQuantity} sold ($${product.totalRevenue.toFixed(2)})`,
-          );
-      });
-      doc.moveDown();
-
-      // Payment Methods
-      doc.fontSize(16).text("Payment Methods", { underline: true });
-      doc.moveDown(0.5);
-
-      for (const [method, data] of Object.entries(reportData.paymentMethods)) {
-        doc
-          .fontSize(12)
-          .text(`${method}: ${data.count} orders ($${data.total.toFixed(2)})`);
-      }
-      doc.moveDown();
-
-      // Recent Orders (Top 20)
-      doc.fontSize(16).text("Recent Orders", { underline: true });
-      doc.moveDown(0.5);
-
-      doc.fontSize(10);
-      reportData.orders.slice(0, 20).forEach((order) => {
-        doc.text(
-          `${order.orderNumber} - ${order.createdAt.toLocaleDateString()} - $${order.totalAmount.toFixed(2)} - ${order.status}`,
-        );
-      });
-
-      doc.end();
-    } catch (error) {
-      console.error("PDF generation error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to generate PDF report",
-        error: error.message,
-      });
-    }
-  },
-
-  // Get Dashboard Stats (Quick overview)
+  // Get Dashboard Stats
   async getDashboardStats(req, res) {
     try {
       const today = new Date();
@@ -433,6 +176,7 @@ const reportController = {
         },
       });
     } catch (error) {
+      console.error("Dashboard stats error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch dashboard stats",
@@ -454,7 +198,7 @@ async function generateReport(startDate, endDate) {
 
   // Calculate summary statistics
   const totalRevenue = orders.reduce(
-    (sum, order) => sum + order.totalAmount,
+    (sum, order) => sum + (order.totalAmount || 0),
     0,
   );
   const totalOrders = orders.length;
@@ -465,20 +209,23 @@ async function generateReport(startDate, endDate) {
   const productSales = {};
 
   orders.forEach((order) => {
-    order.items.forEach((item) => {
-      totalItemsSold += item.quantity;
+    if (order.items && order.items.length) {
+      order.items.forEach((item) => {
+        totalItemsSold += item.quantity || 0;
 
-      const productName = item.product.name;
-      if (!productSales[productName]) {
-        productSales[productName] = {
-          name: productName,
-          totalQuantity: 0,
-          totalRevenue: 0,
-        };
-      }
-      productSales[productName].totalQuantity += item.quantity;
-      productSales[productName].totalRevenue += item.price * item.quantity;
-    });
+        const productName = item.product?.name || "Unknown Product";
+        if (!productSales[productName]) {
+          productSales[productName] = {
+            name: productName,
+            totalQuantity: 0,
+            totalRevenue: 0,
+          };
+        }
+        productSales[productName].totalQuantity += item.quantity || 0;
+        productSales[productName].totalRevenue +=
+          (item.price || 0) * (item.quantity || 0);
+      });
+    }
   });
 
   // Get top products
@@ -489,33 +236,36 @@ async function generateReport(startDate, endDate) {
   // Calculate payment methods distribution
   const paymentMethods = {};
   orders.forEach((order) => {
-    if (!paymentMethods[order.paymentMethod]) {
-      paymentMethods[order.paymentMethod] = {
+    const method = order.paymentMethod || "unknown";
+    if (!paymentMethods[method]) {
+      paymentMethods[method] = {
         count: 0,
         total: 0,
       };
     }
-    paymentMethods[order.paymentMethod].count++;
-    paymentMethods[order.paymentMethod].total += order.totalAmount;
+    paymentMethods[method].count++;
+    paymentMethods[method].total += order.totalAmount || 0;
   });
 
   // Get unique customers
   const uniqueCustomers = new Set(
-    orders.map((order) => order.user?._id?.toString()),
+    orders.map((order) => order.user?._id?.toString()).filter((id) => id),
   ).size;
 
   // Status distribution
   const statusDistribution = {};
   orders.forEach((order) => {
-    statusDistribution[order.status] =
-      (statusDistribution[order.status] || 0) + 1;
+    const status = order.status || "unknown";
+    statusDistribution[status] = (statusDistribution[status] || 0) + 1;
   });
 
-  // Hourly sales distribution (for daily report)
+  // Hourly sales distribution
   const hourlySales = {};
   orders.forEach((order) => {
-    const hour = order.createdAt.getHours();
-    hourlySales[hour] = (hourlySales[hour] || 0) + order.totalAmount;
+    if (order.createdAt) {
+      const hour = order.createdAt.getHours();
+      hourlySales[hour] = (hourlySales[hour] || 0) + (order.totalAmount || 0);
+    }
   });
 
   return {
@@ -527,7 +277,11 @@ async function generateReport(startDate, endDate) {
       uniqueCustomers,
       statusDistribution,
     },
-    orders: orders.sort((a, b) => b.createdAt - a.createdAt),
+    orders: orders.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return dateB - dateA;
+    }),
     topProducts,
     paymentMethods,
     hourlySales,
@@ -546,7 +300,7 @@ async function getPeriodStats(startDate, endDate) {
   });
 
   const totalRevenue = orders.reduce(
-    (sum, order) => sum + order.totalAmount,
+    (sum, order) => sum + (order.totalAmount || 0),
     0,
   );
   const totalOrders = orders.length;
@@ -570,18 +324,21 @@ async function getTopProducts(limit) {
   const productSales = {};
 
   orders.forEach((order) => {
-    order.items.forEach((item) => {
-      const productName = item.product.name;
-      if (!productSales[productName]) {
-        productSales[productName] = {
-          name: productName,
-          totalQuantity: 0,
-          totalRevenue: 0,
-        };
-      }
-      productSales[productName].totalQuantity += item.quantity;
-      productSales[productName].totalRevenue += item.price * item.quantity;
-    });
+    if (order.items && order.items.length) {
+      order.items.forEach((item) => {
+        const productName = item.product?.name || "Unknown Product";
+        if (!productSales[productName]) {
+          productSales[productName] = {
+            name: productName,
+            totalQuantity: 0,
+            totalRevenue: 0,
+          };
+        }
+        productSales[productName].totalQuantity += item.quantity || 0;
+        productSales[productName].totalRevenue +=
+          (item.price || 0) * (item.quantity || 0);
+      });
+    }
   });
 
   return Object.values(productSales)
@@ -595,7 +352,7 @@ async function getLowStockProducts() {
     stock: { $lt: 10 },
   }).populate("category", "name");
 
-  return products;
+  return products || [];
 }
 
 module.exports = reportController;
