@@ -4,6 +4,7 @@ const authController = require("../controllers/authController");
 const authMiddleware = require("../middleware/auth");
 const { validate, userValidations } = require("../middleware/validation");
 
+// Public routes
 router.post(
   "/register",
   validate(userValidations.register),
@@ -11,6 +12,8 @@ router.post(
 );
 router.post("/login", validate(userValidations.login), authController.login);
 router.post("/logout", authController.logout);
+
+// Protected routes
 router.get("/me", authMiddleware, authController.getCurrentUser);
 router.get("/check-session", authMiddleware, authController.checkSession);
 
