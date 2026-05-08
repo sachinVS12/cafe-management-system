@@ -15,7 +15,8 @@ router.get("/monthly", reportController.getMonthlyReport);
 router.get("/custom", reportController.getCustomReport);
 router.get("/dashboard", reportController.getDashboardStats);
 
-// Remove the download routes that are causing issues
-// We'll add them back later when the controller methods are fully implemented
+// Download reports (simplified version)
+router.post("/download/excel", reportController.downloadExcelReport);
+router.post("/download/pdf", reportController.downloadPdfReport);
 
 module.exports = router;
