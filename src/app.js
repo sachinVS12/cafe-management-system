@@ -22,7 +22,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Note: Session middleware is now configured in server.js
+// Session will be configured in server.js
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -42,8 +42,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// 404 handler
-app.use("*", (req, res) => {
+// 404 handler - Fix the wildcard route
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`,
