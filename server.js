@@ -9,41 +9,18 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const app = require("./src/app");
 
-// Try to use MongoDB session store, fallback to memory store
-let sessionConfig;
-
-try {
-  const MongoStore = require("connect-mongo");
-  sessionConfig = {
-    secret: process.env.SESSION_SECRET || "default_secret_key_change_this",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: "lax",
-    },
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGODB_URI,
-      ttl: 24 * 60 * 60,
-    }),
-  };
-  console.log("Using MongoDB session store");
-} catch (error) {
-  console.log("Falling back to memory session store");
-  sessionConfig = {
-    secret: process.env.SESSION_SECRET || "default_secret_key_change_this",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: "lax",
-    },
-  };
-}
+// Simple session configuration without MongoStore initially
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || "default_secret_key_change_this",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: "lax",
+  },
+};
 
 // Apply session middleware
 app.use(session(sessionConfig));
@@ -64,19 +41,14 @@ mongoose
   })
   .catch((err) => {
     console.error("❌ MongoDB Connection Error:", err.message);
-    console.error("\n💡 Troubleshooting Tips:");
-    console.error("1. Make sure MongoDB is installed");
-    console.error("2. Start MongoDB service:");
-    console.error("   - Windows: net start MongoDB");
-    console.error("   - Mac: brew services start mongodb-community");
-    console.error("   - Linux: sudo systemctl start mongod");
-    console.error("3. Check if MongoDB URI is correct in .env file");
+    console.error("\n💡 Make sure MongoDB is running");
+    console.error("💡 Starting server with limited functionality...");
 
-    // Start server even without MongoDB for testing
-    console.log(
-      "\n⚠️  Starting server without MongoDB (some features will not work)",
-    );
+    // Start server even without MongoDB for API testing
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT} (limited functionality)`);
+      console.log(
+        `🚀 Server running on port ${PORT} (limited functionality - no database)`,
+      );
+      console.log(`⚠️  Some features will not work without MongoDB`);
     });
   });
