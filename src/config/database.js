@@ -2,14 +2,12 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(
-      process.env.MONGODB_URI || "mongodb://localhost:27017/cafe_management",
-      {},
-    );
-    console.log("MongoDB Connected Successfully");
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
-    console.error("MongoDB Connection Error:", error);
-    process.exit(1);
+    console.error("❌ MongoDB Connection Error:", error.message);
+    throw error;
   }
 };
 
