@@ -184,6 +184,78 @@ const reportController = {
       });
     }
   },
+
+  // Download Excel Report (Simplified)
+  async downloadExcelReport(req, res) {
+    try {
+      const { startDate, endDate } = req.body;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Start date and end date are required",
+        });
+      }
+
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      const reportData = await generateReport(start, end);
+
+      // For now, send JSON instead of Excel
+      res.json({
+        success: true,
+        message: "Excel report data",
+        data: reportData,
+      });
+    } catch (error) {
+      console.error("Excel report error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to generate Excel report",
+        error: error.message,
+      });
+    }
+  },
+
+  // Download PDF Report (Simplified)
+  async downloadPdfReport(req, res) {
+    try {
+      const { startDate, endDate } = req.body;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Start date and end date are required",
+        });
+      }
+
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      const reportData = await generateReport(start, end);
+
+      // For now, send JSON instead of PDF
+      res.json({
+        success: true,
+        message: "PDF report data",
+        data: reportData,
+      });
+    } catch (error) {
+      console.error("PDF report error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to generate PDF report",
+        error: error.message,
+      });
+    }
+  },
 };
 
 // Helper function to generate report data
@@ -259,15 +331,6 @@ async function generateReport(startDate, endDate) {
     statusDistribution[status] = (statusDistribution[status] || 0) + 1;
   });
 
-  // Hourly sales distribution
-  const hourlySales = {};
-  orders.forEach((order) => {
-    if (order.createdAt) {
-      const hour = order.createdAt.getHours();
-      hourlySales[hour] = (hourlySales[hour] || 0) + (order.totalAmount || 0);
-    }
-  });
-
   return {
     summary: {
       totalOrders,
@@ -277,14 +340,9 @@ async function generateReport(startDate, endDate) {
       uniqueCustomers,
       statusDistribution,
     },
-    orders: orders.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-      return dateB - dateA;
-    }),
+    orders: orders.slice(0, 20), // Limit to 20 recent orders
     topProducts,
     paymentMethods,
-    hourlySales,
     dateRange: {
       start: startDate,
       end: endDate,
@@ -348,11 +406,16 @@ async function getTopProducts(limit) {
 
 // Helper function to get low stock products
 async function getLowStockProducts() {
-  const products = await Product.find({
-    stock: { $lt: 10 },
-  }).populate("category", "name");
+  try {
+    const products = await Product.find({
+      stock: { $lt: 10 },
+    }).populate("category", "name");
 
-  return products || [];
+    return products || [];
+  } catch (error) {
+    console.error("Error fetching low stock products:", error);
+    return [];
+  }
 }
 
 module.exports = reportController;
