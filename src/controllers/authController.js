@@ -22,6 +22,7 @@ const authController = {
         password,
         phone,
         address,
+        role: "customer",
       });
 
       await user.save();
@@ -130,7 +131,22 @@ const authController = {
   // Get current user
   async getCurrentUser(req, res) {
     try {
-      const user = await User.findById(req.user._id).select("-password");
+      if (!req.session.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Not authenticated",
+        });
+      }
+
+      const user = await User.findById(req.session.userId).select("-password");
+      if (!user) {
+        req.session.destroy();
+        return res.status(401).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
       res.json({
         success: true,
         user,
@@ -145,14 +161,32 @@ const authController = {
 
   // Check session
   async checkSession(req, res) {
+    if (!req.session.userId) {
+      return res.status(401).json({
+        success: false,
+        isAuthenticated: false,
+        message: "No active session",
+      });
+    }
+
+    const user = await User.findById(req.session.userId).select("-password");
+    if (!user) {
+      req.session.destroy();
+      return res.status(401).json({
+        success: false,
+        isAuthenticated: false,
+        message: "User not found",
+      });
+    }
+
     res.json({
       success: true,
       isAuthenticated: true,
       user: {
-        id: req.user._id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     });
   },
