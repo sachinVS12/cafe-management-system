@@ -9,7 +9,7 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const app = require("./src/app");
 
-// Simple session configuration without MongoStore initially
+// Simple session configuration
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || "default_secret_key_change_this",
   resave: false,
@@ -25,12 +25,9 @@ const sessionConfig = {
 // Apply session middleware
 app.use(session(sessionConfig));
 
-// Connect to MongoDB
+// Connect to MongoDB without deprecated options
 mongoose
-  .connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGODB_URI)
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
     app.listen(PORT, () => {
