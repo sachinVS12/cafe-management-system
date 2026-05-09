@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hotel Billing System</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f8;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 600px;
+        background: white;
+        padding: 20px;
+        margin: auto;
+        border-radius: 10px;
+        box-shadow: 0 0 10px gray;
+      }
+
+      h2 {
+        text-align: center;
+      }
+
+      label {
+        display: block;
+        margin-top: 10px;
+      }
+
+      input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px;
+        margin-top: 15px;
+        background: green;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background: darkgreen;
+      }
+
+      .bill {
+        margin-top: 20px;
+        background: #eef;
+        padding: 15px;
+        border-radius: 8px;
+      }
+
+      .total {
+        font-size: 20px;
+        font-weight: bold;
+        color: darkblue;
+      }
+
+      .payment {
+        margin-top: 15px;
+        padding: 10px;
+        background: #fff3cd;
+        border: 1px solid #ffeeba;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h2>Hotel Billing System</h2>
+
+      <label>Customer Name</label>
+      <input type="text" id="name" />
+
+      <label>Room Rent (per day)</label>
+      <input type="number" id="room" />
+
+      <label>Number of Days</label>
+      <input type="number" id="days" />
+
+      <label>Food Charges</label>
+      <input type="number" id="food" />
+
+      <label>Extra Services</label>
+      <input type="number" id="extra" />
+
+      <button onclick="calculateBill()">Generate Bill</button>
+
+      <div class="bill" id="bill" style="display: none">
+        <h3>Bill Summary</h3>
+        <p id="details"></p>
+        <p class="total" id="total"></p>
+
+        <div class="payment">
+          <h4>Payment Section</h4>
+          <button onclick="payNow()">Pay Now</button>
+          <p id="paymentStatus"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function calculateBill() {
+        let name = document.getElementById("name").value;
+        let room = Number(document.getElementById("room").value);
+        let days = Number(document.getElementById("days").value);
+        let food = Number(document.getElementById("food").value);
+        let extra = Number(document.getElementById("extra").value);
+
+        let roomTotal = room * days;
+        let total = roomTotal + food + extra;
+
+        let gst = total * 0.1; // 10% tax
+        total = total + gst;
+
+        document.getElementById("bill").style.display = "block";
+
+        document.getElementById("details").innerHTML = `Name: ${name}<br>
+        Room Charges: ₹${roomTotal}<br>
+        Food: ₹${food}<br>
+        Extra Services: ₹${extra}<br>
+        GST (10%): ₹${gst.toFixed(2)}`;
+
+        document.getElementById("total").innerHTML =
+          `Total Payable: ₹${total.toFixed(2)}`;
+      }
+
+      function payNow() {
+        document.getElementById("paymentStatus").innerHTML =
+          "Payment Successful ✅ Thank you for staying with us!";
+      }
+    </script>
+  </body>
+</html>
