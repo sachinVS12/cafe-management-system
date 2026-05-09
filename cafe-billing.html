@@ -6,81 +6,128 @@
 
     <style>
       body {
-        font-family: Arial, sans-serif;
-        background: #f4f6f8;
-        padding: 20px;
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #74ebd5, #9face6);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
 
       .container {
+        width: 90%;
         max-width: 600px;
-        background: white;
-        padding: 20px;
-        margin: auto;
-        border-radius: 10px;
-        box-shadow: 0 0 10px gray;
+        background: #ffffff;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        animation: fadeIn 0.6s ease-in-out;
       }
 
       h2 {
         text-align: center;
+        color: #333;
+        margin-bottom: 20px;
       }
 
       label {
+        margin-top: 12px;
+        font-weight: 600;
+        color: #444;
         display: block;
-        margin-top: 10px;
       }
 
       input {
         width: 100%;
-        padding: 8px;
+        padding: 10px;
         margin-top: 5px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        outline: none;
+        transition: 0.3s;
+      }
+
+      input:focus {
+        border-color: #6c63ff;
+        box-shadow: 0 0 5px rgba(108, 99, 255, 0.4);
       }
 
       button {
         width: 100%;
-        padding: 10px;
+        padding: 12px;
         margin-top: 15px;
-        background: green;
+        background: linear-gradient(90deg, #6c63ff, #48c6ef);
         color: white;
         border: none;
-        cursor: pointer;
+        border-radius: 8px;
         font-size: 16px;
+        cursor: pointer;
+        transition: 0.3s;
       }
 
       button:hover {
-        background: darkgreen;
+        transform: scale(1.03);
+        opacity: 0.9;
       }
 
       .bill {
         margin-top: 20px;
-        background: #eef;
+        background: #f9f9ff;
         padding: 15px;
-        border-radius: 8px;
+        border-radius: 10px;
+        border-left: 5px solid #6c63ff;
+        animation: fadeIn 0.5s ease-in-out;
       }
 
       .total {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: bold;
-        color: darkblue;
+        color: #2b2b8f;
+        margin-top: 10px;
       }
 
       .payment {
         margin-top: 15px;
         padding: 10px;
-        background: #fff3cd;
-        border: 1px solid #ffeeba;
-        border-radius: 5px;
+        background: #fffbe6;
+        border-radius: 8px;
       }
 
-      /* AD BOX */
       .adBox {
         display: none;
         margin-top: 15px;
-        padding: 15px;
-        background: #d1f7d6;
-        border: 2px solid green;
-        border-radius: 8px;
+        padding: 12px;
+        background: #e8fff0;
+        border: 2px dashed #2ecc71;
+        border-radius: 10px;
         text-align: center;
         font-weight: bold;
+        color: #2e7d32;
+        animation: pop 0.5s ease-in-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes pop {
+        0% {
+          transform: scale(0.8);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
       }
     </style>
   </head>
@@ -117,7 +164,6 @@
           <p id="paymentStatus"></p>
         </div>
 
-        <!-- AD BOX -->
         <div class="adBox" id="adBox">
           🎉 SPECIAL OFFER: Get 20% OFF on your next hotel booking!
         </div>
@@ -139,11 +185,13 @@
 
         document.getElementById("bill").style.display = "block";
 
-        document.getElementById("details").innerHTML = `Name: ${name}<br>
-        Room Charges: ₹${roomTotal}<br>
-        Food Charges: ₹${food}<br>
-        Extra Services: ₹${extra}<br>
-        GST (10%): ₹${gst.toFixed(2)}`;
+        document.getElementById("details").innerHTML = `
+          Name: ${name}<br>
+          Room Charges: ₹${roomTotal}<br>
+          Food Charges: ₹${food}<br>
+          Extra Services: ₹${extra}<br>
+          GST (10%): ₹${gst.toFixed(2)}
+        `;
 
         document.getElementById("total").innerHTML =
           `Total Payable: ₹${total.toFixed(2)}`;
@@ -156,10 +204,8 @@
         document.getElementById("paymentStatus").innerHTML =
           "Payment Successful ✅ Thank you for staying with us!";
 
-        // show ad after payment
         document.getElementById("adBox").style.display = "block";
 
-        // return back to form after 4 seconds
         setTimeout(() => {
           document.getElementById("bill").style.display = "none";
 
