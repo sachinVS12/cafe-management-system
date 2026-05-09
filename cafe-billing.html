@@ -70,6 +70,18 @@
         border: 1px solid #ffeeba;
         border-radius: 5px;
       }
+
+      /* AD BOX */
+      .adBox {
+        display: none;
+        margin-top: 15px;
+        padding: 15px;
+        background: #d1f7d6;
+        border: 2px solid green;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: bold;
+      }
     </style>
   </head>
 
@@ -104,6 +116,11 @@
           <button onclick="payNow()">Pay Now</button>
           <p id="paymentStatus"></p>
         </div>
+
+        <!-- AD BOX -->
+        <div class="adBox" id="adBox">
+          🎉 SPECIAL OFFER: Get 20% OFF on your next hotel booking!
+        </div>
       </div>
     </div>
 
@@ -116,26 +133,42 @@
         let extra = Number(document.getElementById("extra").value);
 
         let roomTotal = room * days;
-        let total = roomTotal + food + extra;
-
-        let gst = total * 0.1; // 10% tax
-        total = total + gst;
+        let subtotal = roomTotal + food + extra;
+        let gst = subtotal * 0.1;
+        let total = subtotal + gst;
 
         document.getElementById("bill").style.display = "block";
 
         document.getElementById("details").innerHTML = `Name: ${name}<br>
         Room Charges: ₹${roomTotal}<br>
-        Food: ₹${food}<br>
+        Food Charges: ₹${food}<br>
         Extra Services: ₹${extra}<br>
         GST (10%): ₹${gst.toFixed(2)}`;
 
         document.getElementById("total").innerHTML =
           `Total Payable: ₹${total.toFixed(2)}`;
+
+        document.getElementById("adBox").style.display = "none";
+        document.getElementById("paymentStatus").innerHTML = "";
       }
 
       function payNow() {
         document.getElementById("paymentStatus").innerHTML =
           "Payment Successful ✅ Thank you for staying with us!";
+
+        // show ad after payment
+        document.getElementById("adBox").style.display = "block";
+
+        // return back to form after 4 seconds
+        setTimeout(() => {
+          document.getElementById("bill").style.display = "none";
+
+          document.getElementById("name").value = "";
+          document.getElementById("room").value = "";
+          document.getElementById("days").value = "";
+          document.getElementById("food").value = "";
+          document.getElementById("extra").value = "";
+        }, 4000);
       }
     </script>
   </body>
