@@ -19,24 +19,21 @@
       .container {
         width: 90%;
         max-width: 600px;
-        background: #ffffff;
+        background: #fff;
         padding: 25px;
         border-radius: 15px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        animation: fadeIn 0.6s ease-in-out;
       }
 
       h2 {
         text-align: center;
-        color: #333;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
       }
 
       label {
-        margin-top: 12px;
         font-weight: 600;
-        color: #444;
         display: block;
+        margin-top: 10px;
       }
 
       input {
@@ -45,13 +42,6 @@
         margin-top: 5px;
         border-radius: 8px;
         border: 1px solid #ccc;
-        outline: none;
-        transition: 0.3s;
-      }
-
-      input:focus {
-        border-color: #6c63ff;
-        box-shadow: 0 0 5px rgba(108, 99, 255, 0.4);
       }
 
       button {
@@ -62,13 +52,10 @@
         color: white;
         border: none;
         border-radius: 8px;
-        font-size: 16px;
         cursor: pointer;
-        transition: 0.3s;
       }
 
       button:hover {
-        transform: scale(1.03);
         opacity: 0.9;
       }
 
@@ -78,14 +65,12 @@
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #6c63ff;
-        animation: fadeIn 0.5s ease-in-out;
       }
 
       .total {
         font-size: 22px;
         font-weight: bold;
         color: #2b2b8f;
-        margin-top: 10px;
       }
 
       .payment {
@@ -97,37 +82,52 @@
 
       .adBox {
         display: none;
-        margin-top: 15px;
-        padding: 12px;
+        margin-top: 10px;
+        padding: 10px;
         background: #e8fff0;
-        border: 2px dashed #2ecc71;
-        border-radius: 10px;
+        border: 2px dashed green;
+        border-radius: 8px;
         text-align: center;
         font-weight: bold;
-        color: #2e7d32;
-        animation: pop 0.5s ease-in-out;
       }
 
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
+      /* ===== PRINT INVOICE (A4 STYLE) ===== */
+      @media print {
+        body {
+          background: white;
         }
-        to {
-          opacity: 1;
-          transform: translateY(0);
+
+        .container {
+          box-shadow: none;
+          width: 100%;
+        }
+
+        button,
+        input,
+        label,
+        .payment {
+          display: none !important;
+        }
+
+        .bill {
+          border: none;
         }
       }
 
-      @keyframes pop {
-        0% {
-          transform: scale(0.8);
-          opacity: 0;
-        }
-        100% {
-          transform: scale(1);
-          opacity: 1;
-        }
+      /* Invoice Header Style */
+      .invoiceHeader {
+        text-align: center;
+        margin-bottom: 15px;
+      }
+
+      .invoiceHeader h1 {
+        margin: 0;
+      }
+
+      .invoiceBox {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
       }
     </style>
   </head>
@@ -154,18 +154,25 @@
       <button onclick="calculateBill()">Generate Bill</button>
 
       <div class="bill" id="bill" style="display: none">
-        <h3>Bill Summary</h3>
-        <p id="details"></p>
-        <p class="total" id="total"></p>
+        <!-- INVOICE AREA -->
+        <div class="invoiceHeader">
+          <h1>HOTEL INVOICE</h1>
+          <p>Thank you for staying with us</p>
+        </div>
+
+        <div class="invoiceBox">
+          <p id="details"></p>
+          <p class="total" id="total"></p>
+        </div>
 
         <div class="payment">
-          <h4>Payment Section</h4>
           <button onclick="payNow()">Pay Now</button>
+          <button onclick="window.print()">🖨️ Print Invoice</button>
           <p id="paymentStatus"></p>
         </div>
 
         <div class="adBox" id="adBox">
-          🎉 SPECIAL OFFER: Get 20% OFF on your next hotel booking!
+          🎉 Special Offer: 20% OFF next booking!
         </div>
       </div>
     </div>
@@ -186,15 +193,15 @@
         document.getElementById("bill").style.display = "block";
 
         document.getElementById("details").innerHTML = `
-          Name: ${name}<br>
-          Room Charges: ₹${roomTotal}<br>
-          Food Charges: ₹${food}<br>
-          Extra Services: ₹${extra}<br>
-          GST (10%): ₹${gst.toFixed(2)}
-        `;
+    <b>Name:</b> ${name}<br><br>
+    Room Charges: ₹${roomTotal}<br>
+    Food Charges: ₹${food}<br>
+    Extra Services: ₹${extra}<br>
+    GST (10%): ₹${gst.toFixed(2)}<br>
+  `;
 
         document.getElementById("total").innerHTML =
-          `Total Payable: ₹${total.toFixed(2)}`;
+          `TOTAL AMOUNT: ₹${total.toFixed(2)}`;
 
         document.getElementById("adBox").style.display = "none";
         document.getElementById("paymentStatus").innerHTML = "";
@@ -202,19 +209,9 @@
 
       function payNow() {
         document.getElementById("paymentStatus").innerHTML =
-          "Payment Successful ✅ Thank you for staying with us!";
+          "Payment Successful ✅";
 
         document.getElementById("adBox").style.display = "block";
-
-        setTimeout(() => {
-          document.getElementById("bill").style.display = "none";
-
-          document.getElementById("name").value = "";
-          document.getElementById("room").value = "";
-          document.getElementById("days").value = "";
-          document.getElementById("food").value = "";
-          document.getElementById("extra").value = "";
-        }, 4000);
       }
     </script>
   </body>
